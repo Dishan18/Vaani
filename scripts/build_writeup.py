@@ -46,7 +46,7 @@ def main():
     src = src.replace("{{TABLE2A}}", table_from(tables, "Table 2a: Latency"))
     src = src.replace("{{TABLE2B}}", table_from(tables, "Table 2b: Outcomes"))
     src = src.replace("{{TABLE3}}", table_from(tables, "Table 3: Retrieval settings"))
-    if "—" in src:
+    if "\N{EM DASH}" in src:
         sys.exit("em dash found in writeup.md")
     todo = re.findall(r"\[\[YOU:[^\]]*\]\]", src)
     html = markdown.markdown(src, extensions=["tables"])

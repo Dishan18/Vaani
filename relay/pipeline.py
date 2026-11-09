@@ -434,9 +434,9 @@ class Pipeline:
 
 def normalize_citations(text: str) -> str:
     """Canonicalise the citation formats models actually emit to [S1].
-    Seen on real gpt-oss-120b output: '[ S1 ]' (narrow no-break spaces). Also handles
+    Seen on real gpt-oss-120b output: '[\N{NARROW NO-BREAK SPACE}S1\N{NARROW NO-BREAK SPACE}]' (narrow no-break spaces). Also handles
     '[S1, S3]', '[S1][S2]', '【S1】' and '(S1)'."""
-    text = re.sub(r"[   ​]", " ", text).strip()
+    text = re.sub(r"[\N{NO-BREAK SPACE}\N{THIN SPACE}\N{NARROW NO-BREAK SPACE}\N{ZERO WIDTH SPACE}]", " ", text).strip()
     text = text.replace("【", "[").replace("】", "]")
     text = re.sub(r"\(\s*(S\s*\d+(?:\s*[,;]\s*S?\s*\d+)*)\s*\)", r"[\1]", text)
 

@@ -1,6 +1,6 @@
 """Re-apply relay/grade.py to the stored answers and rewrite only the answer_grade column of results.csv.
 
-Used once after fixing the grader (Unicode hyphens like 'moving‑average' made correct answers fail the
+Used once after fixing the grader (Unicode hyphens like 'moving\N{NON-BREAKING HYPHEN}average' made correct answers fail the
 pattern match). No model calls: the answer text is in data/results/detail.jsonl. Prints every change.
 """
 import csv

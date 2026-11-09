@@ -40,9 +40,9 @@ def cited_sources(text):
 
 
 def normalize(text: str) -> str:
-    """Models emit Unicode hyphens and spaces (seen: 'moving‑average' with U+2011). Fold them to ASCII before matching."""
-    text = re.sub(r"[‐‑‒–—−]", "-", text)
-    text = re.sub(r"[   ​]", " ", text)
+    """Models emit Unicode hyphens and spaces (seen: 'moving\N{NON-BREAKING HYPHEN}average' with U+2011). Fold them to ASCII before matching."""
+    text = re.sub(r"[\N{HYPHEN}\N{NON-BREAKING HYPHEN}\N{FIGURE DASH}\N{EN DASH}\N{EM DASH}\N{MINUS SIGN}]", "-", text)
+    text = re.sub(r"[\N{NO-BREAK SPACE}\N{THIN SPACE}\N{NARROW NO-BREAK SPACE}\N{ZERO WIDTH SPACE}]", " ", text)
     return text.replace("-", " ")
 
 
