@@ -32,6 +32,8 @@ copy .env.example .env   # then put your Groq key in .env
 | `relay/grade.py` | Auto-grading against `questions.jsonl` |
 | `standin/server.py` | Stand-in model service (limits, 429s, latency, stalls, errors, slowdown under load) |
 | `scripts/run_load.py` | Load shapes → `results.csv` + `data/results/detail.jsonl` |
+| `scripts/run_suite.py` | Runs every scenario (`--real` adds the Groq runs), then `make_tables.py` |
+| `scripts/make_tables.py` | Tables 2a / 2b / 3 computed from `results.csv` only → `docs/tables.md` |
 | `docs/` | Probe plan, findings, and the decisions to review |
 
 ## Data

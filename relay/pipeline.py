@@ -50,6 +50,7 @@ class PipelineConfig:
     daily_low: float = 0.15            # under 15% daily left: drop router + verifier
     draft_max_tokens: int = 700        # gpt-oss reasoning shares this budget (see probe phase A)
     prefer_wait_s: float = 2.0         # how long to wait for the best model before taking a weaker one
+    naive: bool = False                # baseline for the retry experiment: ignore the limiter, retry the same model
     tool_fail_rate: float = 0.0        # chaos knobs for the retrieval tool
     tool_slow_rate: float = 0.0
     tool_timeout_s: float = 1.0
@@ -140,6 +141,8 @@ class Pipeline:
                 order.append(waits[0][1])
             order += [m for w, m in waits[1:] if w <= 0.05]
             order += [m for w, m in sorted(waits) if m not in order]
+            if self.cfg.naive:
+                order, chosen = [], candidates[0]  # naive client: no budget check, always the preferred model
             for m in order:
                 try:
                     await self.budgets[m].reserve(est, deadline - 1.5)
@@ -182,7 +185,10 @@ class Pipeline:
                 out.spans.append(Span(step, (call_start - t0) * 1000, (time.perf_counter() - t0) * 1000,
                                       "retry", chosen, "429"))
                 last_err = e
-                candidates = [m for m in candidates if m != chosen] or candidates  # different bucket first
+                if self.cfg.naive:
+                    await asyncio.sleep(random.uniform(0.2, 0.5))  # naive: same model again, short backoff
+                else:
+                    candidates = [m for m in candidates if m != chosen] or candidates  # different bucket first
             except CallTimeout as e:
                 out.spans.append(Span(step, (call_start - t0) * 1000, (time.perf_counter() - t0) * 1000,
                                       "retry", chosen, "timeout"))
@@ -272,7 +278,11 @@ class Pipeline:
                 r, model = await self._llm(out, t0, deadline, "draft", DRAFT_MODELS, self._draft_msgs(question, hits),
                                            max_tokens=self.cfg.draft_max_tokens, expect_out=350)
             except (Unavailable, LLMError) as e:
+                # The person gets cited passages, but no answer, so this is NOT counted as a success.
+                # Status records why: a limit (rate_limited), a slow provider (timeout), or a failure (error).
                 out.error = str(e)
+                out.status = ("rate_limited" if isinstance(e, (Unavailable, RateLimited))
+                              else "timeout" if isinstance(e, CallTimeout) else "error")
                 return self._finish(out, t0, "retrieval_only", self._retrieval_only_text(hits, e))
             out.draft_model = model
             mode = "full" if model == DRAFT_MODELS[0] and not lean else ("weaker_model" if model != DRAFT_MODELS[0] else "lean")

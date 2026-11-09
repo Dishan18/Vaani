@@ -7,7 +7,8 @@ Scenarios (arrival process; all use Poisson arrivals unless noted):
   steady            8/min for 120 s                   (about what the 3 model buckets sustain)
   burst             2/min background + 40 arrivals in 5 s at t=20 s ("something broke for everyone")
   overload          30/min for 120 s                  (~3x sustainable)
-  rpm_halved        steady, but the stand-in's per-minute limits are halved mid-flight
+  rpm_halved        steady, but the stand-in's per-minute limits (RPM and TPM) are halved, and the client isn't told
+  chaos             steady + 5% provider 503s + 5% 8-second stalls + 5% failed/slow search-tool calls
   daily_exhausted   steady, with the stand-in's daily request budget emptied
   real_steady       4/min for 180 s against real Groq (budget: ~12 questions x <=3 calls)
   real_burst        10 arrivals at once against real Groq
@@ -51,6 +52,10 @@ SCENARIOS = {
     "burst": dict(kind="burst", rate_per_min=2, duration_s=90, burst_at_s=20, burst_n=40, burst_over_s=5),
     "overload": dict(kind="poisson", rate_per_min=30, duration_s=120),
     "rpm_halved": dict(kind="poisson", rate_per_min=8, duration_s=120, admin={"rpm_scale": 0.5, "tpm_scale": 0.5}),
+    # Not in the probe: Groq showed no errors or stalls in 119 calls. These rates are assumptions to exercise the paths.
+    "chaos": dict(kind="poisson", rate_per_min=8, duration_s=120,
+                  admin={"error_rate": 0.05, "stall_rate": 0.05, "stall_s": 8.0},
+                  pipeline={"tool_fail_rate": 0.05, "tool_slow_rate": 0.05}),
     "daily_exhausted": dict(kind="poisson", rate_per_min=8, duration_s=60, admin={"exhaust_daily": True}),
     "real_steady": dict(kind="poisson", rate_per_min=4, duration_s=180),
     "real_burst": dict(kind="burst", rate_per_min=0, duration_s=40, burst_at_s=0, burst_n=10, burst_over_s=0.5),
@@ -117,8 +122,13 @@ async def run(args):
         proc = await start_standin()
         client = ChatClient(STANDIN_BASE_URL)
     budgets = Budgets(LIMITS)
-    pipe = Pipeline(client, budgets, PipelineConfig(setting=args.setting, verify=args.verify),
-                    RetryBudget(ratio=args.retry_ratio), cost_fn=cost_usd)
+    pcfg = PipelineConfig(setting=args.setting, verify=args.verify, **spec.get("pipeline", {}))
+    rbudget = RetryBudget(ratio=args.retry_ratio)
+    if args.naive:
+        pcfg.naive, pcfg.max_attempts = True, 4
+        rbudget = RetryBudget(ratio=1.0, initial=1e9)
+    pipe = Pipeline(client, budgets, pcfg, rbudget, cost_fn=cost_usd)
+    label = args.label or args.scenario
     gate = Admission(args.max_active)
     run_tag = dt.datetime.now().strftime("%H%M%S")
     rows, details = [], []
@@ -129,7 +139,7 @@ async def run(args):
 
     async def one(i, at_s, q):
         await asyncio.sleep(at_s)
-        rid = f"{args.scenario}-{run_tag}-{i:04d}"
+        rid = f"{label}-{run_tag}-{i:04d}"
         start = dt.datetime.now(dt.timezone.utc).isoformat()
         patience = min(60.0, rng.lognormvariate(math.log(args.patience_median_s), 0.5))
         t0 = time.perf_counter()
@@ -153,7 +163,7 @@ async def run(args):
             out, total, ft, status = None, (time.perf_counter() - t0) * 1000, None, "timeout"
         g = grade(q, out.mode, out.text, status) if (out and real) else ""
         rows.append({
-            "request_id": rid, "scenario": args.scenario, "source": "real" if real else "stand-in", "start_time": start,
+            "request_id": rid, "scenario": label, "source": "real" if real else "stand-in", "start_time": start,
             "first_token_ms": round(ft, 1) if ft is not None and status != "timeout" else "",
             "total_ms": round(total, 1), "status": status, "retries": out.retries if out else 0,
             "tokens_in": out.tokens_in if out else 0, "tokens_out": out.tokens_out if out else 0,
@@ -183,6 +193,7 @@ async def run(args):
             state = (await c.get("http://127.0.0.1:8765/admin/state")).json()
         print("stand-in:", state["stats"])
         proc.terminate()
+        proc.wait(timeout=10)  # free the port before the next run starts its own stand-in
 
     out_csv = ROOT / "results.csv"
     new = not out_csv.exists()
@@ -198,7 +209,8 @@ async def run(args):
             f.write(json.dumps(d, ensure_ascii=False) + "\n")
     meta = DATA / "results" / "runs.jsonl"
     with meta.open("a", encoding="utf-8") as f:
-        f.write(json.dumps({"scenario": args.scenario, "source": args.source, "run_tag": run_tag, "requests": len(rows),
+        f.write(json.dumps({"scenario": label, "base_scenario": args.scenario, "naive": args.naive,
+                            "source": args.source, "run_tag": run_tag, "requests": len(rows),
                             "wall_s": round(wall, 1), "spec": spec, "peak_queue": gate.peak,
                             "setting": pipe.setting.label(), "max_active": args.max_active}) + "\n")
     print(f"{len(rows)} requests in {wall:.0f}s, peak queue {gate.peak}")
@@ -214,6 +226,8 @@ if __name__ == "__main__":
     ap.add_argument("--retry-ratio", type=float, default=0.1)
     ap.add_argument("--patience-median-s", type=float, default=15.0)
     ap.add_argument("--service-deadline-s", type=float, default=15.0)
+    ap.add_argument("--label", help="scenario name written to results.csv (default: --scenario)")
+    ap.add_argument("--naive", action="store_true", help="baseline client: no limiter, retry 429s on the same model")
     ap.add_argument("--seed", type=int, default=1)
     a = ap.parse_args()
     if a.scenario.startswith("real") or a.scenario == "quality":

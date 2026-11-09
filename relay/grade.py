@@ -40,7 +40,7 @@ def cited_sources(text):
 
 
 def grade(q: dict, mode: str, text: str, status: str) -> str:
-    if status != "ok" or mode == "busy":
+    if mode in ("busy", "gave_up") or (status != "ok" and mode != "retrieval_only"):
         return ""
     declined = mode in ("refused", "retrieval_only")
     if not q.get("answerable", True):

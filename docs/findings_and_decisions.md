@@ -35,7 +35,9 @@ Overruled decisions are good material for "How I worked with the assistant".
 5. **Retry policy:** at most 1 retry per step. Retry on a *different* model's bucket first, never the one that just returned 429. A global retry budget caps retries at 10% of attempts. Never retry a daily-limit 429. *Worth testing:* `--retry-ratio 1.0` under `overload` as the "retrying made things worse" case.
 6. **Retrieval is BM25**, with no embeddings: zero tokens, about 0.1 ms, and no extra rate-limited dependency. Pieces never cross a section boundary, so each one has a single citation. The four settings to compare are in `relay/retrieval.py` `SETTINGS`.
 7. **Verifier (LLM) runs only with headroom** (`verify=auto`), since the deterministic gate always runs. Under pressure, answers skip the LLM check.
-8. **Stand-in quality is not graded.** Its text is synthetic, so `answer_grade` is left empty for stand-in rows and for requests that got no reply. Quality is graded only on real runs.
+8. **A passages-only reply isn't counted as a success.** In `results.csv` its status is the cause: `rate_limited`, `timeout` or `error`. Its grade is `refused_*`, because the person got evidence but no answer. *Alternative:* count it as `ok`. That would flatter "Succeeded %".
+9. **The chaos rates (5% 503s, 5% 8 s stalls, 5% tool failures) are assumptions.** Groq showed none of these in 119 calls, so they aren't calibrated.
+10. **Stand-in quality is not graded.** Its text is synthetic, so `answer_grade` is left empty for stand-in rows and for requests that got no reply. Quality is graded only on real runs.
 
 ## Bugs caught during the build (candidates for "one thing it got wrong")
 - The load harness first gave the pipeline each person's *hidden patience* as its deadline, which lets the system cheat. It now uses a fixed service deadline.
@@ -50,6 +52,5 @@ Overruled decisions are good material for "How I worked with the assistant".
 
 ## Still to do
 - **Write ≥15 questions yourself** in `questions.jsonl` (format in `questions.example.jsonl`). Include unanswerable ones.
-- Run the scenarios: `steady`, `burst`, `overload`, `rpm_halved`, `daily_exhausted` (stand-in), plus `real_steady`, `real_burst` and `quality` (real), and the 4 retrieval settings with `--setting`.
-- A script that builds Tables 2a, 2b and 3 from `results.csv` and `data/results/runs.jsonl`.
-- Chaos knobs not yet exercised: stand-in `error_rate`, `stall_rate`, and the pipeline's `tool_fail_rate` / `tool_slow_rate`.
+- Then run `scripts/run_suite.py --real --fresh` for the final `results.csv`, which covers all stand-in scenarios, the real runs and all 4 retrieval settings. `docs/tables.md` is regenerated from it.
+- The "retrying made things worse" evidence is `overload` vs `overload_naive_retry` (same load, naive client with no limiter that retries the same model up to 3 times).
