@@ -38,7 +38,6 @@ copy .env.example .env   # then put your Groq key in .env
 | `scripts/retriever_traps.py` | How a naive retriever goes wrong on this library (no model calls) |
 | `scripts/regrade.py` | Re-applies the grader to stored answers (used once, after a grader fix) |
 | `scripts/build_writeup.py` | Renders `writeup/writeup.md` to `writeup/writeup.pdf`, inserting the tables |
-| `scripts/redact_transcript.py` | Copies an exported conversation with the Groq key from `.env` replaced by [REDACTED] |
 | `questions.jsonl` | The 18 evaluation questions with gold facts |
 | `docs/findings_and_decisions.md` | Decision log with the evidence for each choice |
 | `docs/` | Probe plan, findings, and the decisions to review |
