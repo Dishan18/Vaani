@@ -119,10 +119,14 @@ async def run(args):
     if real:
         client = ChatClient(GROQ_BASE_URL, groq_key())
     else:
-        proc = await start_standin()
-        client = ChatClient(STANDIN_BASE_URL)
+        proc = await start_standin(args.port)
+        client = ChatClient(STANDIN_BASE_URL.replace(":8765", f":{args.port}"))
     budgets = Budgets(LIMITS)
     pcfg = PipelineConfig(setting=args.setting, verify=args.verify, **spec.get("pipeline", {}))
+    for kv in args.set or []:  # e.g. --set max_wait_s=5 --set prefer_wait_s=60
+        k, v = kv.split("=", 1)
+        cur = getattr(pcfg, k)
+        setattr(pcfg, k, type(cur)(v) if not isinstance(cur, bool) else v.lower() in ("1", "true", "yes"))
     rbudget = RetryBudget(ratio=args.retry_ratio)
     if args.naive:
         pcfg.naive, pcfg.max_attempts = True, 4
@@ -135,7 +139,7 @@ async def run(args):
 
     if spec.get("admin") and not real:
         async with httpx.AsyncClient() as c:
-            await c.post("http://127.0.0.1:8765/admin/config", json=spec["admin"])
+            await c.post(f"http://127.0.0.1:{args.port}/admin/config", json=spec["admin"])
 
     async def one(i, at_s, q):
         await asyncio.sleep(at_s)
@@ -190,29 +194,33 @@ async def run(args):
     await client.aclose()
     if proc:
         async with httpx.AsyncClient() as c:
-            state = (await c.get("http://127.0.0.1:8765/admin/state")).json()
+            state = (await c.get(f"http://127.0.0.1:{args.port}/admin/state")).json()
         print("stand-in:", state["stats"])
         proc.terminate()
         proc.wait(timeout=10)  # free the port before the next run starts its own stand-in
 
-    out_csv = ROOT / "results.csv"
+    out_csv = ROOT / args.out
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
     new = not out_csv.exists()
     with out_csv.open("a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=CSV_COLS)
         if new:
             w.writeheader()
         w.writerows(sorted(rows, key=lambda r: r["start_time"]))
-    det = DATA / "results" / "detail.jsonl"
-    det.parent.mkdir(parents=True, exist_ok=True)
-    with det.open("a", encoding="utf-8") as f:
+    # Experiments written to another CSV keep their detail files apart from the submission's.
+    side = DATA / "results" if args.out == "results.csv" else out_csv.parent
+    stem = "" if args.out == "results.csv" else out_csv.stem + "_"
+    side.mkdir(parents=True, exist_ok=True)
+    with (side / f"{stem}detail.jsonl").open("a", encoding="utf-8") as f:
         for d in details:
             f.write(json.dumps(d, ensure_ascii=False) + "\n")
-    meta = DATA / "results" / "runs.jsonl"
-    with meta.open("a", encoding="utf-8") as f:
+    with (side / f"{stem}runs.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps({"scenario": label, "base_scenario": args.scenario, "naive": args.naive,
                             "source": args.source, "run_tag": run_tag, "requests": len(rows),
                             "wall_s": round(wall, 1), "spec": spec, "peak_queue": gate.peak,
-                            "setting": pipe.setting.label(), "max_active": args.max_active}) + "\n")
+                            "setting": pipe.setting.label(), "max_active": args.max_active,
+                            "pipeline_config": pcfg.__dict__, "service_deadline_s": args.service_deadline_s,
+                            "patience_median_s": args.patience_median_s}) + "\n")
     print(f"{len(rows)} requests in {wall:.0f}s, peak queue {gate.peak}")
 
 
@@ -220,7 +228,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenario", required=True, choices=list(SCENARIOS))
     ap.add_argument("--source", choices=["real", "standin"], default="standin")
-    ap.add_argument("--setting", default="medium")
+    ap.add_argument("--setting", default="small")
     ap.add_argument("--verify", default="auto")
     ap.add_argument("--max-active", type=int, default=12)
     ap.add_argument("--retry-ratio", type=float, default=0.1)
@@ -228,6 +236,9 @@ if __name__ == "__main__":
     ap.add_argument("--service-deadline-s", type=float, default=15.0)
     ap.add_argument("--label", help="scenario name written to results.csv (default: --scenario)")
     ap.add_argument("--naive", action="store_true", help="baseline client: no limiter, retry 429s on the same model")
+    ap.add_argument("--set", action="append", help="override a PipelineConfig field, e.g. --set max_wait_s=5")
+    ap.add_argument("--port", type=int, default=8765, help="stand-in port (lets stand-in runs go in parallel)")
+    ap.add_argument("--out", default="results.csv", help="CSV to append to (experiments can go to a separate file)")
     ap.add_argument("--seed", type=int, default=1)
     a = ap.parse_args()
     if a.scenario.startswith("real") or a.scenario == "quality":

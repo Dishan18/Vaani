@@ -38,7 +38,7 @@ NOT_IN_PAPERS = "NOT_IN_PAPERS"
 
 @dataclass
 class PipelineConfig:
-    setting: str = "medium"
+    setting: str = "small"             # chosen from Table 3: 14/14 answerable correct, fewest tokens per answer
     patience_s: float = 20.0           # default deadline if the caller gives none
     step_timeout_s: float = 12.0       # hard cap on any single model call
     first_token_timeout_s: float = 6.0  # "succeeds slowly" calls are cut here
@@ -48,9 +48,14 @@ class PipelineConfig:
     refuse_score: float = 0.12         # normalised BM25 below this -> "the papers don't say"
     loop_score: float = 0.25           # below this, run a second retrieval round
     daily_low: float = 0.15            # under 15% daily left: drop router + verifier
-    draft_max_tokens: int = 700        # gpt-oss reasoning shares this budget (see probe phase A)
+    draft_max_tokens: int = 500        # gpt-oss reasoning shares this budget (probe phase A), and Groq charges the
+                                       # full max_tokens at admission, so this is kept just above what drafts use
     prefer_wait_s: float = 2.0         # how long to wait for the best model before taking a weaker one
     naive: bool = False                # baseline for the retry experiment: ignore the limiter, retry the same model
+    max_wait_s: float = 3.0            # longest we wait for model budget before degrading. Overload experiment
+                                       # (2 seeds): success ~equal at 3/6/15 s, but 3 s had no give-ups and the lowest p95
+    lean_k: int = 4                    # pieces sent to the drafter in lean mode (fewer input tokens when limits are
+                                       # close). Quality at this level is measured as Table 3's small_lean row
     tool_fail_rate: float = 0.0        # chaos knobs for the retrieval tool
     tool_slow_rate: float = 0.0
     tool_timeout_s: float = 1.0
@@ -103,8 +108,11 @@ class RetryBudget:
         return False
 
 
-def est_tokens(messages, out_tokens):
-    return sum(len(m["content"]) for m in messages) / 3.6 + out_tokens
+def est_tokens(messages, max_tokens):
+    """What Groq charges at admission, calibrated from the probe's 429 bodies: prompt tokens (about 3.1 characters
+    per token; e.g. 13,208 chars with max_tokens=16 was 'Requested 4319') plus the full max_tokens.
+    The difference from actual usage is settled after the call."""
+    return sum(len(m["content"]) for m in messages) / 3.1 + 20 + max_tokens
 
 
 class Pipeline:
@@ -131,7 +139,7 @@ class Pipeline:
                 out.retries += 1
             self.retry_budget.on_attempt()
             attempt += 1
-            est = est_tokens(messages, expect_out)
+            est = est_tokens(messages, max_tokens)
             # Model choice: the preferred model if it's free within `prefer_wait_s`, otherwise the first fallback
             # that's free now, otherwise wait for whichever frees up first (if that fits the deadline).
             chosen, wait_start = None, time.perf_counter()
@@ -143,9 +151,10 @@ class Pipeline:
             order += [m for w, m in sorted(waits) if m not in order]
             if self.cfg.naive:
                 order, chosen = [], candidates[0]  # naive client: no budget check, always the preferred model
+            wait_deadline = min(deadline - 1.5, time.monotonic() + self.cfg.max_wait_s)
             for m in order:
                 try:
-                    await self.budgets[m].reserve(est, deadline - 1.5)
+                    await self.budgets[m].reserve(est, wait_deadline)
                     chosen = m
                     break
                 except Unavailable as e:
@@ -273,6 +282,8 @@ class Pipeline:
                     hits = hits[: self.setting.k]
             else:
                 hits = hits[: self.setting.k]
+            if lean:
+                hits = hits[: min(len(hits), self.cfg.lean_k)]  # limit is close: spend fewer input tokens
             # 4. Draft. Fallback models are separate buckets; using one means a weaker answer.
             try:
                 r, model = await self._llm(out, t0, deadline, "draft", DRAFT_MODELS, self._draft_msgs(question, hits),
@@ -426,7 +437,7 @@ def normalize_citations(text: str) -> str:
     def split_group(m):
         nums = re.findall(r"\d+", m.group(1))
         return "".join(f"[S{n}]" for n in nums)
-    return re.sub(r"\[\s*(S\s*\d+(?:\s*[,;–-]\s*S?\s*\d+)*)\s*\]", split_group, text)
+    return re.sub(r"\[\s*(S\s*\d+(?:\s*[,;\N{EN DASH}-]\s*S?\s*\d+)*)\s*\]", split_group, text)
 
 
 def _parse_json(text: str) -> dict:

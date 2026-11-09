@@ -66,7 +66,7 @@ def peak_queue(rows):
 
 
 def main():
-    path = ROOT / "results.csv"
+    path = ROOT / (sys.argv[1] if len(sys.argv) > 1 else "results.csv")
     if not path.exists():
         sys.exit("no results.csv yet")
     rows = list(csv.DictReader(path.open(encoding="utf-8")))
@@ -130,7 +130,8 @@ def main():
         out.append(f"| {setting} | {len(rs)} | {100 * g.count('correct') / n:.1f} | {100 * g.count('wrong') / n:.1f} | "
                    f"{100 * g.count('refused_correctly') / n:.1f} | {(sum(tok) / len(tok)) if tok else 0:.0f} | {p2(ft)} | {p2(tt)} |")
     text = "\n".join(out) + "\n"
-    (ROOT / "docs" / "tables.md").write_text(text, encoding="utf-8")
+    if len(sys.argv) == 1:
+        (ROOT / "docs" / "tables.md").write_text(text, encoding="utf-8")
     print(text)
 
 

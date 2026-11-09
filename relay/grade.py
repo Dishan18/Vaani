@@ -39,6 +39,13 @@ def cited_sources(text):
     return out
 
 
+def normalize(text: str) -> str:
+    """Models emit Unicode hyphens and spaces (seen: 'moving‑average' with U+2011). Fold them to ASCII before matching."""
+    text = re.sub(r"[‐‑‒–—−]", "-", text)
+    text = re.sub(r"[   ​]", " ", text)
+    return text.replace("-", " ")
+
+
 def grade(q: dict, mode: str, text: str, status: str) -> str:
     if mode in ("busy", "gave_up") or (status != "ok" and mode != "retrieval_only"):
         return ""
@@ -47,7 +54,7 @@ def grade(q: dict, mode: str, text: str, status: str) -> str:
         return "refused_correctly" if declined else "wrong"
     if declined:
         return "refused_wrongly"
-    body = text.split("\n\nSources:")[0]
+    body = normalize(text.split("\n\nSources:")[0])
     if not all(re.search(p, body, re.I) for p in q.get("must_include", [])):
         return "wrong"
     gold_pages = set(q.get("pages", []))

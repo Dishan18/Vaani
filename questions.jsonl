@@ -1,0 +1,21 @@
+// Evaluation set: 14 answerable, 4 unanswerable. Drafted by the AI assistant; every gold fact was checked against
+// data/blocks.jsonl (page numbers are PDF pages). must_include patterns are regexes matched against the answer body.
+// Traps: q14 (Helium's schedule vs Attention's warmup), u2 (LibriSpeech is in Moshi, not H-Net), u4 (GPT-4 is named in Moshi).
+{"id": "q01", "question": "What value of warmup_steps was used to train the Transformer?", "answerable": true, "paper": "attention", "pages": [7], "must_include": ["4,?000"]}
+{"id": "q02", "question": "What label smoothing value was used when training the Transformer?", "answerable": true, "paper": "attention", "pages": [8], "must_include": ["0\\.1"]}
+{"id": "q03", "question": "Why does scaled dot-product attention divide by the square root of d_k?", "answerable": true, "paper": "attention", "pages": [4], "must_include": ["gradient"]}
+{"id": "q04", "question": "With 8 attention heads, what is the dimension of each head's keys and values in the base Transformer?", "answerable": true, "paper": "attention", "pages": [5], "must_include": ["64"]}
+{"id": "q05", "question": "How long did the big Transformer take to train, and on what GPUs?", "answerable": true, "paper": "attention", "pages": [7, 8], "must_include": ["3\\.5", "P100"]}
+{"id": "q06", "question": "What frame rate and bitrate does the Mimi codec operate at?", "answerable": true, "paper": "moshi", "pages": [8, 11], "must_include": ["12\\.5", "1\\.1"]}
+{"id": "q07", "question": "What is Moshi's theoretical latency, and what is it in practice?", "answerable": true, "paper": "moshi", "pages": [1, 2], "must_include": ["160", "200"]}
+{"id": "q08", "question": "How many parameters does the Helium text model have, and how many tokens was it pretrained on?", "answerable": true, "paper": "moshi", "pages": [3, 8], "must_include": ["7\\s?B|7 billion|7-billion", "2\\.1\\s?T|2\\.1 trillion"]}
+{"id": "q09", "question": "What word error rate does Moshi's streaming TTS reach on LibriSpeech test-clean?", "answerable": true, "paper": "moshi", "pages": [31], "must_include": ["4\\.7"]}
+{"id": "q10", "question": "Which dataset was used to fine-tune Moshi for full-duplex conversation?", "answerable": true, "paper": "moshi", "pages": [8, 17], "must_include": ["Fisher"]}
+{"id": "q11", "question": "In H-Net, how does the routing module decide where to place chunk boundaries?", "answerable": true, "paper": "dynamic_chunking", "pages": [6], "must_include": ["cosine"]}
+{"id": "q12", "question": "What does the smoothing module in H-Net's dechunking layer compute?", "answerable": true, "paper": "dynamic_chunking", "pages": [6, 7], "must_include": ["exponential moving average|EMA"]}
+{"id": "q13", "question": "What dataset and data budget were the H-Net language models trained on?", "answerable": true, "paper": "dynamic_chunking", "pages": [11], "must_include": ["FineWeb"]}
+{"id": "q14", "question": "What learning rate schedule was used to train Helium?", "answerable": true, "paper": "moshi", "pages": [20], "must_include": ["cosine"]}
+{"id": "u1", "question": "What BLEU score does H-Net report on WMT 2014 English-to-German?", "answerable": false}
+{"id": "u2", "question": "What word error rate does H-Net achieve on LibriSpeech?", "answerable": false}
+{"id": "u3", "question": "How much did it cost in US dollars to train the big Transformer model?", "answerable": false}
+{"id": "u4", "question": "How many parameters does GPT-4 have?", "answerable": false}

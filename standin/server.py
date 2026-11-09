@@ -126,11 +126,11 @@ class StandIn:
         if not st:
             return web.json_response({"error": {"message": f"model {model} not found", "type": "invalid_request_error"}}, status=404)
         msgs = req.get("messages", [])
-        tin = max(1, int(sum(len(m.get("content", "")) for m in msgs) / 3.6))
+        tin = max(1, int(sum(len(m.get("content", "")) for m in msgs) / 3.2))  # probe: 3.1-3.3 chars per token
         max_tokens = int(req.get("max_tokens", 400))
         reply = make_reply(msgs, json_mode=bool(req.get("response_format")))
-        tout = min(max_tokens, max(1, int(len(reply) / 3.6)))
-        charge = tin + min(max_tokens, 200)  # Groq reserves part of the output up front (probe phase A)
+        tout = min(max_tokens, max(1, int(len(reply) / 3.2)))
+        charge = tin + max_tokens  # probe 429 bodies: Groq's "Requested" = prompt tokens + max_tokens
 
         # Admission, in the order Groq appears to check (RPD, RPM, ITPM, TPM)
         if st.rpd.refill() < 1:
@@ -179,7 +179,7 @@ class StandIn:
                                       "choices": [{"index": 0, "delta": {"content": piece}, "finish_reason": None}]}))
                 await asyncio.sleep(gap)
             # Settle the TPM charge to actual output, like a real provider would
-            st.tpm.level += min(max_tokens, 200) - tout
+            st.tpm.level += max_tokens - tout
             await resp.write(sse({"id": cid, "object": "chat.completion.chunk", "model": model,
                                   "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
                                   "x_groq": {"usage": {"prompt_tokens": tin, "completion_tokens": tout,

@@ -1,0 +1,35 @@
+[Same term, wrong paper] What word error rate does H-Net achieve on LibriSpeech?
+  naive top hit: Moshi, 5.7 Streaming ASR and TTS, p.31: "Metrics. Section 3.4.4 and Appendix C describe how Inner Monologue can provide a streaming TTS or streaming AS..."
+  rank of target passage in naive results: 4
+  with references excluded, top hit: Moshi, 5.7 Streaming ASR and TTS, p.31
+  note: H-Net never reports LibriSpeech. Any hit is from Moshi and must not be used.
+
+[Same term, wrong paper] What dropout rate was used?
+  naive top hit: Moshi, Appendix A. Additional ablation on Mimi codec, p.53: "Table 17: Ablation study on hyperparameters of the Mimi codec. We evaluate semantic modeling by reporting the ..."
+  rank of target passage in naive results: 2
+  with references excluded, top hit: Moshi, Appendix A. Additional ablation on Mimi codec, p.53
+  note: Attention 5.4 is the intended answer.
+
+[Vocabulary mismatch] What is the frame rate of the Mimi codec?
+  naive top hit: Moshi, 5.1 Text Language Modeling, pp.22-23: "Results. We report results in Table 2, and we observe that on most benchmarks, Helium is on-par or outperformi..."
+  rank of target passage in naive results: 18
+  with references excluded, top hit: Moshi, 5.1 Text Language Modeling, pp.22-23
+  note: Moshi 3.3 says '12.5Hz'.
+
+[Similar procedure, other paper] What learning rate schedule was used to train Helium?
+  naive top hit: Moshi, 4.4 Training stages and hyper-parameters, p.20: "Helium pre-training. An overview of the training stages and hyper parameters is provided in Table 1. For every..."
+  rank of target passage in naive results: 1
+  with references excluded, top hit: Moshi, 4.4 Training stages and hyper-parameters, p.20
+  note: Moshi 4.4: cosine schedule. Attention 5.3 has a warmup formula.
+
+[References section] Which paper evaluates on ImageNet?
+  naive top hit: Moshi, 5.4 Audio language modeling, p.27: "as audio tokens. In particular, sWUGGY evaluates a model’s ability to learn a lexicon from speech by comparing..."
+  rank of target passage in naive results: 3
+  with references excluded, top hit: Moshi, 5.4 Audio language modeling, p.27
+  note: Only a bibliography entry matches; no paper reports ImageNet results.
+
+[Flattened numbers] What was the training cost in FLOPs of the big Transformer?
+  naive top hit: Attention, 6.1 Machine Translation, p.8: "On the WMT 2014 English-to-German translation task, the big transformer model (Transformer (big) in Table 2) o..."
+  rank of target passage in naive results: 2
+  with references excluded, top hit: Attention, 6.1 Machine Translation, p.8
+  note: Extracted text reads '2.3 · 1019' for 2.3 x 10^19.

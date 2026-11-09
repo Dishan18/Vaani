@@ -58,6 +58,8 @@ SETTINGS = {
     "medium": Setting("medium", piece_chars=1200, k=5),
     "large": Setting("large", piece_chars=2400, k=3),
     "medium_rerank": Setting("medium_rerank", piece_chars=1200, k=4, rerank=True),
+    # What a person gets in lean mode with the chosen setting: 4 small pieces, no router, no verifier.
+    "small_lean": Setting("small_lean", piece_chars=600, k=4),
 }
 
 
