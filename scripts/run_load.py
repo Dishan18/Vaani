@@ -56,6 +56,9 @@ SCENARIOS = {
     "chaos": dict(kind="poisson", rate_per_min=8, duration_s=120,
                   admin={"error_rate": 0.05, "stall_rate": 0.05, "stall_s": 8.0},
                   pipeline={"tool_fail_rate": 0.05, "tool_slow_rate": 0.05}),
+    # Experiment only (tuning the first-token timeout): 20% of model calls stall for 8 s before the first token.
+    "stall_heavy": dict(kind="poisson", rate_per_min=8, duration_s=120,
+                        admin={"stall_rate": 0.2, "stall_s": 8.0}),
     "daily_exhausted": dict(kind="poisson", rate_per_min=8, duration_s=60, admin={"exhaust_daily": True}),
     "real_steady": dict(kind="poisson", rate_per_min=4, duration_s=180),
     "real_burst": dict(kind="burst", rate_per_min=0, duration_s=40, burst_at_s=0, burst_n=10, burst_over_s=0.5),

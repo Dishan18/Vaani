@@ -33,7 +33,14 @@ copy .env.example .env   # then put your Groq key in .env
 | `standin/server.py` | Stand-in model service (limits, 429s, latency, stalls, errors, slowdown under load) |
 | `scripts/run_load.py` | Load shapes → `results.csv` + `data/results/detail.jsonl` |
 | `scripts/run_suite.py` | Runs every scenario (`--real` adds the Groq runs), then `make_tables.py` |
-| `scripts/make_tables.py` | Tables 2a / 2b / 3 computed from `results.csv` only → `docs/tables.md` |
+| `scripts/make_tables.py` | Tables 2a / 2b / 3 computed from `results.csv` only, written to `docs/tables.md` |
+| `scripts/explain_request.py` | Splits one request's latency into waiting, working and retrying (heading 4) |
+| `scripts/retriever_traps.py` | How a naive retriever goes wrong on this library (no model calls) |
+| `scripts/regrade.py` | Re-applies the grader to stored answers (used once, after a grader fix) |
+| `scripts/build_writeup.py` | Renders `writeup/writeup.md` to `writeup/writeup.pdf`, inserting the tables |
+| `scripts/redact_transcript.py` | Copies an exported conversation with the Groq key from `.env` replaced by [REDACTED] |
+| `questions.jsonl` | The 18 evaluation questions with gold facts |
+| `docs/findings_and_decisions.md` | Decision log with the evidence for each choice |
 | `docs/` | Probe plan, findings, and the decisions to review |
 
 ## Data

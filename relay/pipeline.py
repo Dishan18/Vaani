@@ -30,7 +30,9 @@ from .limiter import Budgets, Unavailable
 from .llm import CallTimeout, ChatClient, LLMError, RateLimited
 from .retrieval import PAPER_TITLES, SETTINGS, Hit, Setting, get_index
 
-ROUTER_MODEL = "openai/gpt-oss-20b"
+# Router and re-ranker: qwen first (reasoning off). Real runs: router on gpt-oss-20b had median 569 ms, p95 1,250 ms
+# and returned empty 5.2% of the time (hidden reasoning used the whole max_tokens); on qwen, 220 ms and no empties.
+ROUTER_MODELS = ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
 DRAFT_MODELS = ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]  # preference order
 VERIFY_MODEL = "openai/gpt-oss-20b"
 NOT_IN_PAPERS = "NOT_IN_PAPERS"
@@ -41,7 +43,8 @@ class PipelineConfig:
     setting: str = "small"             # chosen from Table 3: 14/14 answerable correct, fewest tokens per answer
     patience_s: float = 20.0           # default deadline if the caller gives none
     step_timeout_s: float = 12.0       # hard cap on any single model call
-    first_token_timeout_s: float = 6.0  # "succeeds slowly" calls are cut here
+    first_token_timeout_s: float = 3.0  # "succeeds slowly" calls are cut here. Slowest healthy real first token in
+                                        # 345 calls: 2,240 ms. With 20% stalls: 94.1% success at 3 s vs 76.5% at 6 s
     max_attempts: int = 2              # 1 try + at most 1 retry per step
     verify: str = "auto"               # "off" | "auto" (only with headroom) | "on"
     use_router: str = "auto"           # "off" | "auto" | "on"
@@ -128,11 +131,13 @@ class Pipeline:
 
     # ------------------------------------------------------------------ helpers
     async def _llm(self, out: Outcome, t0: float, deadline: float, step: str, models: list[str],
-                   messages: list, max_tokens: int, expect_out: int, json_mode=False):
-        """One logical model call with budget reservation, fallback and a bounded retry."""
+                   messages: list, max_tokens: int, expect_out: int, json_mode=False, attempts: Optional[int] = None):
+        """One logical model call with budget reservation, fallback and a bounded retry.
+        Best-effort steps (verify, rerank) pass attempts=1: if they stall, we skip them rather than retry."""
         attempt, last_err = 0, None
+        max_attempts = attempts or self.cfg.max_attempts
         candidates = [m for m in models if m in self.budgets.by_model]
-        while attempt < self.cfg.max_attempts and candidates:
+        while attempt < max_attempts and candidates:
             if attempt > 0:
                 if not self.retry_budget.try_spend():
                     break
@@ -178,7 +183,8 @@ class Pipeline:
                 out.tokens_out += r.tokens_out
                 if self.cost_fn:
                     out.cost_usd += self.cost_fn(chosen, r.tokens_in, r.tokens_out)
-                kind = "retry" if attempt > 1 else "work"
+                # A call that produced no visible text is wasted time (counted as retrying); a call that answered is work.
+                kind = "work" if r.text.strip() else "retry"
                 out.spans.append(Span(step, (call_start - t0) * 1000, (time.perf_counter() - t0) * 1000, kind, chosen,
                                       f"ttft={r.first_token_ms and round(r.first_token_ms)}"))
                 if not r.text.strip():
@@ -245,7 +251,7 @@ class Pipeline:
             use_router = self.cfg.use_router == "on" or (self.cfg.use_router == "auto" and not lean)
             if use_router:
                 try:
-                    r, _ = await self._llm(out, t0, deadline, "understand", [ROUTER_MODEL, "qwen/qwen3.8-27b"],
+                    r, _ = await self._llm(out, t0, deadline, "understand", ROUTER_MODELS,
                                            self._router_msgs(question), max_tokens=300, expect_out=120, json_mode=True)
                     plan = _parse_json(r.text)
                     papers = [p for p in plan.get("papers", []) if p in PAPER_TITLES] or None
@@ -272,9 +278,9 @@ class Pipeline:
                 return self._finish(out, t0, "refused", self._refusal_text(question, hits))
             if self.setting.rerank and not lean and len(hits) > self.setting.k:
                 try:
-                    r, _ = await self._llm(out, t0, deadline, "rerank", [ROUTER_MODEL],
+                    r, _ = await self._llm(out, t0, deadline, "rerank", ROUTER_MODELS,
                                            self._rerank_msgs(question, hits), max_tokens=200, expect_out=40,
-                                           json_mode=True)
+                                           json_mode=True, attempts=1)
                     order = [int(i) for i in _parse_json(r.text).get("best", []) if str(i).isdigit()]
                     picked = [hits[i - 1] for i in order if 1 <= i <= len(hits)]
                     hits = (picked + [h for h in hits if h not in picked])[: self.setting.k]
@@ -305,7 +311,7 @@ class Pipeline:
             if ok and self._should_verify(lean, deadline):
                 try:
                     v, _ = await self._llm(out, t0, deadline, "verify", [VERIFY_MODEL], self._verify_msgs(question, hits, draft),
-                                           max_tokens=300, expect_out=80, json_mode=True)
+                                           max_tokens=300, expect_out=80, json_mode=True, attempts=1)
                     verdict = _parse_json(v.text)
                     if verdict.get("supported") is False:
                         ok, why = False, "verifier: " + "; ".join(map(str, verdict.get("unsupported", [])))[:200]

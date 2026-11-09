@@ -12,3 +12,6 @@ The_Relay_Assignment_Brief.pdf
 data/papers/
 data/blocks.jsonl
 data/index/
+
+# Local upload folder (built from the committed repo)
+submission/

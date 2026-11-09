@@ -24,7 +24,9 @@ def main():
     else:
         cands = [r for r in rows.values() if r["source"] == "real" and r["first_token_ms"]
                  and not r["scenario"].startswith("quality")]
-        rid = max(cands, key=lambda r: float(r["first_token_ms"]))["request_id"]
+        # Prefer the slowest real request that waited for budget or retried: that's where the time question is interesting.
+        eventful = [r for r in cands if any(s["kind"] in ("wait", "retry") for s in det[r["request_id"]]["spans"])]
+        rid = max(eventful or cands, key=lambda r: float(r["first_token_ms"]))["request_id"]
     r, d = rows[rid], det[rid]
     q = d["queue_ms"]
     ft = float(r["first_token_ms"]) if r["first_token_ms"] else None
@@ -40,7 +42,7 @@ def main():
         a, b = s["start_ms"] + q, s["end_ms"] + q
         dur = b - a
         sums[s["kind"]] += dur
-        if ft is None or b <= ft:
+        if ft is None or b <= ft + 1.0:  # 1 ms tolerance for rounding in the CSV
             before_ft += dur
         else:
             after_ft += dur
