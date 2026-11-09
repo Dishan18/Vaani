@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets: never commit
+.env
+
+# The assignment brief is Vaani's. Keep it out of a public repo.
+The_Relay_Assignment_Brief.pdf
+
+# Fetched / derived data (regenerate with scripts/fetch_papers.py + scripts/extract_papers.py)
+data/papers/
+data/blocks.jsonl
+data/index/
