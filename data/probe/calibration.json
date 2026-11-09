@@ -1,0 +1,22 @@
+{
+  "models": {
+    "openai/gpt-oss-120b": {
+      "ttfb_p50_ms": 695,
+      "ttfb_p95_ms": 936,
+      "tokens_per_s": 633
+    },
+    "openai/gpt-oss-20b": {
+      "ttfb_p50_ms": 659,
+      "ttfb_p95_ms": 909,
+      "tokens_per_s": 1522
+    },
+    "qwen/qwen3.8-27b": {
+      "ttfb_p50_ms": 352,
+      "ttfb_p95_ms": 489,
+      "tokens_per_s": 486,
+      "itpm": 7000
+    }
+  },
+  "load_alpha": 0.04,
+  "load_knee": 4
+}

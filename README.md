@@ -10,6 +10,30 @@ python -m venv .venv
 copy .env.example .env   # then put your Groq key in .env
 ```
 
+## Run
+
+```
+.venv\Scripts\python.exe scripts\fetch_papers.py              # papers at exact arXiv versions
+.venv\Scripts\python.exe scripts\extract_papers.py            # -> data/blocks.jsonl
+.venv\Scripts\python.exe -X utf8 scripts\probe_groq.py        # real Groq probe (budgeted; see docs/probe_plan.md)
+.venv\Scripts\python.exe -X utf8 scripts\analyze_probe.py     # Table 1 evidence + stand-in calibration
+.venv\Scripts\python.exe -X utf8 scripts\run_load.py --scenario burst            # stand-in
+.venv\Scripts\python.exe -X utf8 scripts\run_load.py --scenario quality          # real Groq, graded
+```
+
+## Layout
+
+| Path | What |
+|---|---|
+| `relay/llm.py` | One streaming client for Groq and the stand-in. Records first byte, first visible token, headers and chunk timings. |
+| `relay/limiter.py` | Client-side mirror of Groq's continuously refilling buckets, synced from headers and 429 bodies |
+| `relay/retrieval.py` | Section-aware chunking + BM25, with 4 retrieval settings |
+| `relay/pipeline.py` | understand → retrieve (tool, loop) → decide → draft → check → send, plus the degrade ladder |
+| `relay/grade.py` | Auto-grading against `questions.jsonl` |
+| `standin/server.py` | Stand-in model service (limits, 429s, latency, stalls, errors, slowdown under load) |
+| `scripts/run_load.py` | Load shapes → `results.csv` + `data/results/detail.jsonl` |
+| `docs/` | Probe plan, findings, and the decisions to review |
+
 ## Data
 
 - `data/papers/`: the three PDFs, fetched by exact version from arxiv.org

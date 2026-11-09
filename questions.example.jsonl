@@ -1,0 +1,9 @@
+// EXAMPLES written by the AI assistant to smoke-test the pipeline. The brief asks for >=15 questions YOU wrote.
+// Put yours in questions.jsonl (same format); the runner prefers it over this file.
+{"id": "ex01", "question": "What value of warmup_steps was used to train the Transformer?", "answerable": true, "paper": "attention", "pages": [7], "must_include": ["4000|4,000"]}
+{"id": "ex02", "question": "What dropout rate did the base Transformer model use?", "answerable": true, "paper": "attention", "pages": [8], "must_include": ["0\\.1"]}
+{"id": "ex03", "question": "What hardware was the Transformer trained on?", "answerable": true, "paper": "attention", "pages": [7], "must_include": ["P100"]}
+{"id": "ex04", "question": "At what frame rate does the Mimi codec produce tokens?", "answerable": true, "paper": "moshi", "pages": [9, 10, 11], "must_include": ["12\\.5"]}
+{"id": "ex05", "question": "In H-Net, how does the routing module decide where a chunk boundary is?", "answerable": true, "paper": "dynamic_chunking", "pages": [6, 7], "must_include": ["cosine|similarity"]}
+{"id": "ex06", "question": "What BLEU score does H-Net report on WMT 2014 English-to-German?", "answerable": false}
+{"id": "ex07", "question": "How many parameters does GPT-4 have?", "answerable": false}
