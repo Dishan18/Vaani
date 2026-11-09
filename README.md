@@ -27,7 +27,7 @@ copy .env.example .env   # then put your Groq key in .env
 |---|---|
 | `relay/llm.py` | One streaming client for Groq and the stand-in. Records first byte, first visible token, headers and chunk timings. |
 | `relay/limiter.py` | Client-side mirror of Groq's continuously refilling buckets, synced from headers and 429 bodies |
-| `relay/retrieval.py` | Section-aware chunking + BM25, with 4 retrieval settings |
+| `relay/retrieval.py` | Section-aware chunking + BM25, with 5 retrieval settings (small, medium, large, medium_rerank, small_lean) |
 | `relay/pipeline.py` | understand → retrieve (tool, loop) → decide → draft → check → send, plus the degrade ladder |
 | `relay/grade.py` | Auto-grading against `questions.jsonl` |
 | `standin/server.py` | Stand-in model service (limits, 429s, latency, stalls, errors, slowdown under load) |
